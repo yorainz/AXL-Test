@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model League {
+  id        Int      @id @default(autoincrement())
+  name      String
+  season    String
+  teams     Team[]
+  matches   Match[]
+  createdAt DateTime @default(now())
+}
+
+model Team {
+  id         Int      @id @default(autoincrement())
+  leagueId   Int
+  name       String
+  shortName  String?
+  logoUrl    String?
+  externalId String?  @unique
+  league     League   @relation(fields: [leagueId], references: [id])
+  players    Player[]
+  homeGames  Match[]  @relation("HomeTeam")
+  awayGames  Match[]  @relation("AwayTeam")
+  standings  TeamStanding[]
+}
+
+model Player {
+  id             Int                 @id @default(autoincrement())
+  teamId         Int
+  firstName      String
+  lastName       String
+  position       String
+  jerseyNo       Int?
+  status         String?
+  externalId     String?             @unique
+  team           Team                @relation(fields: [teamId], references: [id])
+  matchStats     PlayerMatchStat[]
+  fantasyRecords PlayerFantasyPoint[]
+}
+
+model Match {
+  id         Int               @id @default(autoincrement())
+  leagueId   Int
+  matchday   Int?
+  kickoffAt  DateTime
+  homeTeamId Int
+  awayTeamId Int
+  status     String
+  homeScore  Int?
+  awayScore  Int?
+  venue      String?
+  externalId String?           @unique
+  league     League            @relation(fields: [leagueId], references: [id])
+  homeTeam   Team              @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam   Team              @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  stats      PlayerMatchStat[]
+  fantasy    PlayerFantasyPoint[]
+}
+
+model PlayerMatchStat {
+  id           Int    @id @default(autoincrement())
+  matchId      Int
+  playerId     Int
+  minutes      Int    @default(0)
+  goals        Int    @default(0)
+  assists      Int    @default(0)
+  shots        Int    @default(0)
+  shotsOnTarget Int   @default(0)
+  yellowCards  Int    @default(0)
+  redCards     Int    @default(0)
+  match        Match  @relation(fields: [matchId], references: [id])
+  player       Player @relation(fields: [playerId], references: [id])
+
+  @@unique([matchId, playerId])
+}
+
+model TeamStanding {
+  id        Int      @id @default(autoincrement())
+  leagueId  Int
+  teamId    Int
+  played    Int      @default(0)
+  wins      Int      @default(0)
+  draws     Int      @default(0)
+  losses    Int      @default(0)
+  gf        Int      @default(0)
+  ga        Int      @default(0)
+  gd        Int      @default(0)
+  points    Int      @default(0)
+  updatedAt DateTime @updatedAt
+  team      Team     @relation(fields: [teamId], references: [id])
+
+  @@unique([leagueId, teamId])
+}
+
+model FantasyRule {
+  id         Int     @id @default(autoincrement())
+  ruleKey    String  @unique
+  points     Int
+  description String?
+}
+
+model PlayerFantasyPoint {
+  id           Int      @id @default(autoincrement())
+  playerId     Int
+  matchId      Int
+  points       Int
+  breakdownJson Json?
+  calculatedAt DateTime @default(now())
+  player       Player   @relation(fields: [playerId], references: [id])
+  match        Match    @relation(fields: [matchId], references: [id])
+
+  @@unique([playerId, matchId])
+}
+
+model ImportJob {
+  id          Int      @id @default(autoincrement())
+  sourceType  String
+  entityType  String
+  status      String
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+  summaryJson Json?
+  errors      ImportError[]
+}
+
+model ImportError {
+  id          Int       @id @default(autoincrement())
+  importJobId Int
+  rowNumber   Int?
+  fieldName   String?
+  message     String
+  rawDataJson Json?
+  importJob   ImportJob @relation(fields: [importJobId], references: [id])
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  role         String
+  createdAt    DateTime @default(now())
+}
